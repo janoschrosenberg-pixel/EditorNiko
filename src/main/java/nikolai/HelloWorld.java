@@ -1,10 +1,10 @@
 package nikolai;
 
 import com.mammb.code.piecetable.TextEdit;
+import view.EditorFrame;
 
 public class HelloWorld {
     public static void main(String[] args) {
-        TextEdit edit = TextEdit.of();
-        edit.insert()
+        EditorFrame fe= new EditorFrame();
     }
 }

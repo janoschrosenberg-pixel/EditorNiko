@@ -2,5 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tree-sitter-typescript" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tree-sitter-typescript/tsx/tree-sitter" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tree-sitter-typescript/tsx/tree-sitter-typescript" vcs="Git" />
   </component>
 </project>
