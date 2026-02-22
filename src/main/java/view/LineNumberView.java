@@ -7,7 +7,7 @@ import java.awt.*;
 
 public class LineNumberView extends JComponent {
 
-    private final Buffer buffer;
+    private Buffer buffer;
     private final EditorView editorView;
     private final int padding = 6;
 
@@ -17,9 +17,16 @@ public class LineNumberView extends JComponent {
         setFont(editorView.getEditorFont());
     }
 
+    public void changeBuffer(Buffer buffer){
+        this.buffer = buffer;
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+
+        g.setColor(   new Color(0xC51162));
+        g.fillRect(0,0,getWidth(),getHeight());
 
         Graphics2D g2 = (Graphics2D) g;
         g2.setFont(getFont());
@@ -31,6 +38,7 @@ public class LineNumberView extends JComponent {
         FontMetrics fm = g2.getFontMetrics();
         int y = lineHeight;
 
+        g.setColor(   new Color(0xAEEA00));
         for (int i = 0; i < visibleLines; i++) {
             int lineNumber = startLine + i + 1;
             if (lineNumber > buffer.getTotalRows()) break;

@@ -6,13 +6,13 @@ import javax.swing.*;
 import java.awt.*;
 
 public class EditorPanel extends JPanel {
-
+    LineNumberView lineNumbers;
     private EditorView editorView;
     public EditorPanel(Buffer buffer) {
         setLayout(new BorderLayout());
 
         this.editorView = new EditorView(buffer);
-        LineNumberView lineNumbers =
+         lineNumbers =
                 new LineNumberView(buffer, editorView);
 
         add(lineNumbers, BorderLayout.WEST);
@@ -21,6 +21,12 @@ public class EditorPanel extends JPanel {
     public void repaintEditor(){
         repaint();
         this.editorView.repaint();
+    }
+
+    public void changeBuffer(Buffer buffer) {
+
+        this.editorView.changeBuffer(buffer);
+        lineNumbers.changeBuffer(buffer);
     }
 
     public EditorView getEditorView() {

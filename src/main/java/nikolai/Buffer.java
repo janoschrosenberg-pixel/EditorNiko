@@ -2,7 +2,12 @@ package nikolai;
 
 import com.mammb.code.piecetable.Pos;
 import com.mammb.code.piecetable.TextEdit;
+import io.github.treesitter.jtreesitter.Tree;
+import treesitter.TsxSyntax;
 
+import java.io.File;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Buffer {
@@ -10,13 +15,56 @@ public class Buffer {
     private int scrollOffset = 0;
     private int maxLines = 20;
     private int preferredCol = 0;
-    private TextEdit edit = TextEdit.of();
+    private TextEdit edit;
+
+    private final String fileName;
+    private Tree tree;
+
+    public List<List<TsxSyntax.SyntaxToken>> getToken() {
+        return token;
+    }
+
+    private List<List<TsxSyntax.SyntaxToken>> token = new ArrayList<>();
 
     private Pos cursor = new Pos(0,0);
 
     public Pos getCurrentCursorPos() {
         return new Pos(cursor.row() - scrollOffset, cursor.col());
     }
+
+    public Buffer(Path path)  {
+       this.fileName = path.toString();
+       this.edit = TextEdit.of(path);
+        System.out.println(this.getCurrentLine());
+       updateToken();
+    }
+
+    public String getCurrentLine() {
+      return  getTextAtLine(this.cursor.row()).trim();
+    }
+
+    public String getTextAtLine(int row) {
+        return edit.getText(new Pos(row,0), new Pos(row+1,0));
+    }
+
+    public Buffer(String fileName)  {
+        this.fileName = fileName;
+        this.edit = TextEdit.of();
+        updateToken();
+    }
+
+    public void parseText() {
+            this.tree = TsxSyntax.parse(getText()).get();
+    }
+
+    public void updateToken() {
+        parseText();
+        this.token = TsxSyntax.collectTokens(this.tree);
+    }
+
+
+
+
 
     public void moveCursor(Direction dir, int steps) {
         if(steps < 0) throw new IllegalArgumentException("steps is negative");
@@ -78,6 +126,8 @@ public class Buffer {
     }
 
     public List<String> getViewPortTextLines(int maxLines) {
+
+
         if(maxLines<0) {
             throw new IllegalArgumentException("maxLines is negative");
         }
@@ -103,6 +153,11 @@ public class Buffer {
         revalidateViewPort();
     }
 
+    public void addText(String text) {
+        this.cursor = this.edit.insert(List.of(cursor), text).getFirst();
+        revalidateViewPort();
+    }
+
     private void revalidateViewPort() {
         if (cursor.row() < scrollOffset) {
             scrollOffset = cursor.row();
@@ -119,5 +174,27 @@ public class Buffer {
         return edit.rows();
     }
 
+    public String getText() {
+        int rows = edit.rows();
+
+        if (rows == 0) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (int row = 0; row < rows; row++) {
+            sb.append(edit.getText(
+                    new Pos(row, 0),
+                    new Pos(row + 1, 0)
+            ));
+        }
+
+        return sb.toString();
+    }
+
+    public String getFileName() {
+        return this.fileName;
+    }
 
 }

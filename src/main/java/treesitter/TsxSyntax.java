@@ -5,13 +5,18 @@ import io.github.treesitter.jtreesitter.Parser;
 import io.github.treesitter.jtreesitter.Tree;
 import io.github.treesitter.jtreesitter.Node;
 
+import java.awt.*;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.Arena;
-import java.util.Optional;
+
+import java.util.*;
 import java.io.IOException;
+import java.util.List;
+import java.util.function.Consumer;
+
 
 public class TsxSyntax {
-    private final Parser parser;
+    private final static Parser parser;
 
     static {
         try {
@@ -27,7 +32,7 @@ public class TsxSyntax {
         }
     }
 
-    public TsxSyntax() {
+   static {
         parser = new Parser();
 
         try {
@@ -44,13 +49,14 @@ public class TsxSyntax {
         }
     }
 
-    public Optional<Tree> parse(String text) {
+    public static Optional<Tree> parse(String text) {
         return parser.parse(text);
     }
 
-    public Optional<Tree> parseIncremental(String text, Tree oldTree) {
+    public static Optional<Tree> parseIncremental(String text, Tree oldTree) {
         return parser.parse(text, oldTree);
     }
+    public record SyntaxToken(Color color, int startCol, int startRow, int endCol, int endRow){ }
 
     public static void main(String[] args) {
         String tsxCode = """
@@ -83,57 +89,122 @@ public class TsxSyntax {
             """;
 
         try {
-            System.out.println("Initialisiere TSX Parser...");
+
             TsxSyntax tsxParser = new TsxSyntax();
 
-            System.out.println("\n=== Parse TSX Code ===");
-            System.out.println(tsxCode);
-            System.out.println("\n=== Parsing... ===");
 
             Optional<Tree> treeOpt = tsxParser.parse(tsxCode);
 
-            if (treeOpt.isPresent()) {
-                Tree tree = treeOpt.get();
-                Node rootNode = tree.getRootNode();
+            Set<String> blar = new HashSet<>();
 
-                System.out.println("✓ Parsing erfolgreich!");
-                System.out.println("\nSyntax Tree Info:");
-                System.out.println("  Root Node Type: " + rootNode.getType());
-                System.out.println("  Start Byte: " + rootNode.getStartByte());
-                System.out.println("  End Byte: " + rootNode.getEndByte());
-                System.out.println("  Child Count: " + rootNode.getChildCount());
-                System.out.println("  Has Error: " + rootNode.hasError());
+            System.out.println( collectTokens(treeOpt.get()));
 
-                System.out.println("\n=== Tree Structure ===");
-                System.out.println(tree.toString());
-
-                System.out.println("\n=== Root Children ===");
-                for (int i = 0; i < rootNode.getChildCount(); i++) {
-                    Optional<Node> childOpt = rootNode.getChild(i);
-                    if (childOpt.isPresent()) {
-                        Node child = childOpt.get();
-                        System.out.println("  Child " + i + ": " + child.getType() +
-                                " [" + child.getStartByte() + "-" + child.getEndByte() + "]");
-                    }
-                }
-
-                System.out.println("\n=== Test: Inkrementelles Parsing ===");
-                String modifiedCode = tsxCode.replace("count + 1", "count + 2");
-                Optional<Tree> newTreeOpt = tsxParser.parseIncremental(modifiedCode, tree);
-
-                if (newTreeOpt.isPresent()) {
-                    System.out.println("✓ Inkrementelles Update erfolgreich!");
-                    Tree newTree = newTreeOpt.get();
-                    System.out.println("  New Tree Has Error: " + newTree.getRootNode().hasError());
-                }
-
-            } else {
-                System.err.println("✗ Parsing fehlgeschlagen!");
-            }
+            System.out.println(blar);
 
         } catch (Exception e) {
             System.err.println("✗ Fehler:");
             e.printStackTrace();
         }
+    }
+
+
+
+    public static List<List<SyntaxToken>> collectTokens(Tree treeOpt) {
+        List<List<SyntaxToken>> lines = new ArrayList<>();
+
+        Node rootNode = treeOpt.getRootNode();
+
+        // 1. Tokens nach Zeile sammeln
+        consumeChild(rootNode, node -> {
+
+
+            var start = node.getStartPoint();
+            var end = node.getEndPoint();
+
+            int row = start.row();
+
+            // Stelle sicher, dass die Zeile existiert
+            while (lines.size() <= row) {
+                lines.add(new ArrayList<>());
+            }
+
+
+            lines.get(row).add(new SyntaxToken(
+                   mapColor( node.getType()),
+                    start.column(),
+                    row,
+                    end.column(),
+                    end.row()
+            ));
+        });
+
+        return lines;
+    }
+
+    static final Color[] CYBERPUNK_NEON = {
+            new Color(0x00FFFF), // Neon Cyan
+            new Color(0xFF00FF), // Neon Magenta
+            new Color(0x00FFEA),
+            new Color(0xFF2EFF),
+            new Color(0x00E5FF),
+            new Color(0x7CFF00), // Acid Green
+            new Color(0xFF1744), // Neon Red
+            new Color(0x1AFF1A),
+            new Color(0x2979FF),
+            new Color(0x18FFFF),
+            new Color(0xFF9100),
+            new Color(0xC6FF00),
+            new Color(0x651FFF),
+            new Color(0x00B0FF),
+            new Color(0xF500FF),
+            new Color(0x76FF03),
+
+            new Color(0x40C4FF),
+            new Color(0xE040FB),
+            new Color(0x00FFC8),
+            new Color(0xFF4081),
+            new Color(0x64FFDA),
+            new Color(0xFF6E40),
+            new Color(0x00E676),
+            new Color(0x536DFE),
+            new Color(0x1DE9B6),
+            new Color(0xFF3D00),
+            new Color(0xC51162),
+            new Color(0x00BFA5),
+            new Color(0x6200EA),
+            new Color(0x00E5FF),
+            new Color(0xAEEA00),
+            new Color(0xD500F9),
+
+            new Color(0x18FFFF),
+            new Color(0xFF80AB),
+            new Color(0x69F0AE),
+            new Color(0xFF5252),
+            new Color(0x40C4FF),
+            new Color(0xEEFF41),
+            new Color(0xB388FF),
+            new Color(0x00FFD5),
+            new Color(0xFF1744),
+            new Color(0x76FF03),
+            new Color(0x7C4DFF),
+            new Color(0x1DE9B6),
+            new Color(0xFF9100),
+            new Color(0x00B8D4),
+            new Color(0xF50057),
+            new Color(0xA7FFEB)
+    };
+
+    static Color mapColor(String type) {
+        int index = Math.floorMod(type.hashCode(), CYBERPUNK_NEON.length);
+        return CYBERPUNK_NEON[index];
+    }
+
+
+    private static void consumeChild( Node child, Consumer<Node> consumer) {
+        if(child.getChildCount() == 0) {
+            consumer.accept(child);
+        }
+
+        child.getChildren().forEach(e -> consumeChild(e, consumer));
     }
 }
