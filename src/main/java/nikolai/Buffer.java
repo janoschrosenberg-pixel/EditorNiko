@@ -1,6 +1,7 @@
 package nikolai;
 
 import com.mammb.code.piecetable.Pos;
+import com.mammb.code.piecetable.Range;
 import com.mammb.code.piecetable.TextEdit;
 import io.github.treesitter.jtreesitter.Tree;
 import treesitter.TsxSyntax;
@@ -8,6 +9,7 @@ import treesitter.TsxSyntax;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Buffer {
@@ -35,8 +37,14 @@ public class Buffer {
     public Buffer(Path path)  {
        this.fileName = path.toString();
        this.edit = TextEdit.of(path);
-        System.out.println(this.getCurrentLine());
+
        updateToken();
+    }
+
+    public void clear() {
+       this.edit = TextEdit.of();
+        cursor = new Pos(0,0);
+        scrollOffset = 0;
     }
 
     public String getCurrentLine() {
@@ -61,10 +69,6 @@ public class Buffer {
         parseText();
         this.token = TsxSyntax.collectTokens(this.tree);
     }
-
-
-
-
 
     public void moveCursor(Direction dir, int steps) {
         if(steps < 0) throw new IllegalArgumentException("steps is negative");
@@ -175,22 +179,7 @@ public class Buffer {
     }
 
     public String getText() {
-        int rows = edit.rows();
-
-        if (rows == 0) {
-            return "";
-        }
-
-        StringBuilder sb = new StringBuilder();
-
-        for (int row = 0; row < rows; row++) {
-            sb.append(edit.getText(
-                    new Pos(row, 0),
-                    new Pos(row + 1, 0)
-            ));
-        }
-
-        return sb.toString();
+        return edit.getText(0,0,getTotalRows(),0);
     }
 
     public String getFileName() {

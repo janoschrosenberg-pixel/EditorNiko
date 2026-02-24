@@ -16,6 +16,7 @@ import java.awt.event.KeyEvent;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class EditorFrame extends JFrame {
 
@@ -27,6 +28,7 @@ public class EditorFrame extends JFrame {
     private Map<String, Buffer> bufferCache = new HashMap<>();
     private FileScanner scanner = new FileScanner();
     private final StatusPanel statusPanel = new StatusPanel();
+    private CommandPanel commandPanel = new CommandPanel();
 
     private Stack<Buffer> bufferMenuStack = new Stack<>();
 
@@ -131,6 +133,14 @@ public class EditorFrame extends JFrame {
         return KeyStroke.getKeyStroke(getKeyCodeFromChar(key), modifier);
     }
 
+    public void clearCommand() {
+        this.commandPanel.clear();
+    }
+
+    public String getCommandText() {
+        return this.commandPanel.getText();
+    }
+
     public void backspace() {
         currentBuffer.backspace();
         currentBuffer.updateToken();
@@ -148,11 +158,16 @@ public class EditorFrame extends JFrame {
     }
     public void popMode() {
         modeStack.pop();
+        var current = modeStack.current();
+        commandPanel.setVisible(current.getBool("command"));
         updateStatusProp();
     }
     public void setMode(String name) {
         Mode m = modeRegistry.getOrCreate(name);
         modeStack.push(m);
+        if(m.getBool("command")) {
+            commandPanel.setVisible(true);
+        }
         updateStatusProp();
     }
 
@@ -203,6 +218,10 @@ public class EditorFrame extends JFrame {
        loadFile(currentLine);
     }
 
+    public String getCurrentLine() {
+        return currentBuffer.getCurrentLine();
+    }
+
     public void popMenuBuffer(){
         if(bufferMenuStack.isEmpty()) {
             return;
@@ -222,6 +241,17 @@ public class EditorFrame extends JFrame {
         bufferMenuStack.push(currentBuffer);
         currentBuffer = new Buffer(menuName);
         currentBuffer.addText(scanner.filesToString());
+    }
+
+    public void delCommand() {
+        this.commandPanel.del();
+    }
+
+    public void filterFiles() {
+      String filter = this.commandPanel.getText();
+      String filtered =  scanner.getFiles().stream().filter(f->f.contains(filter)).collect(Collectors.joining("\n"));
+      currentBuffer.clear();
+      currentBuffer.addText(filtered);
     }
 
 
@@ -247,16 +277,33 @@ public class EditorFrame extends JFrame {
                 if (!Character.isISOControl(e.getKeyChar())) {
                     Mode m = modeStack.current();
 
-                    if (m == null || m.getBool("insert-like")) {
-                        currentBuffer.addChar(e.getKeyChar());
+                    if (m != null && m.getBool("insert-like")) {
+                        if(m.getBool("command")) {
+                            commandPanel.addChar(e.getKeyChar());
+                        }else{
+                            currentBuffer.addChar(e.getKeyChar());
+                        }
+
+                        var trigger = m.getFunc("trigger");
+
+                        if(trigger != null) {
+                            trigger.invoke();
+                        }
+
                         v1.repaintEditor();
                     }
+
+
 
                 }
             }
         });
 
         setLayout(new BorderLayout());
+
+        commandPanel.setPreferredSize(new Dimension(0, 30));
+        commandPanel.setVisible(false);
+        add(commandPanel, BorderLayout.NORTH);
         add(v1, BorderLayout.CENTER);
 
         statusPanel.setPreferredSize(new Dimension(0, 30));

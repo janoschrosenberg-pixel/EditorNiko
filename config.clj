@@ -1,5 +1,21 @@
-(ns user.config
+(ns c
   (:import [view EditorFrame]))
+
+(import '(java.awt Toolkit)
+        '(java.awt.datatransfer DataFlavor)
+        '(java.awt.datatransfer StringSelection)
+        )
+
+(defn read-clip []
+  (let [clipboard (.getSystemClipboard (Toolkit/getDefaultToolkit))
+        contents (.getContents clipboard nil)]
+    (when (.isDataFlavorSupported contents DataFlavor/stringFlavor)
+      (.getTransferData contents DataFlavor/stringFlavor))))
+
+(defn write-clip [text]
+  (let [clipboard (.getSystemClipboard (Toolkit/getDefaultToolkit))
+        selection (StringSelection. text)]
+    (.setContents clipboard selection nil)))
 
 (def api (EditorFrame.))
 
@@ -32,17 +48,39 @@
 (defn insert-text [text] (.inserText api text))
 (defn syntax-update [] (.updateToken api))
 (defn set-status-text [text] (.setStatus api text))
+(defn filter-files [] (.filterFiles api))
+(defn command-text [] (.getCommandText api))
+(defn clear-command [] (.clearCommand api))
+
+(defn current-row [] (.getCurrentLine api))
 
 (defn stack-size [] (.getBufferMenuStackLength api))
+(defn del-command [] (.delCommand api))
+(defn del-and-filter [] (del-command) (filter-files) )
 
 (defn test-status [] (set-status-text (stack-size)))
 
 (defn insert-tab [] (insert-text "  "))
 
+(def repl-ns (create-ns 'c))
+
+(defn eval-text [text]
+  (binding [*ns* repl-ns]
+    (let [form (read-string text)]
+      (eval form))))
+
+(defn eval-command []
+ (eval-text (command-text)))
+
+ (defn eval-row [] (eval-text (current-row) ))
+
+(defn eval-command-and-clear [] (eval-command)(clear-command))
+(defn enter-command-mode [] (set-mode "command"))
 
 (mode "insert" {:insert-like true})
-(mode "files" {})
+(mode "files" {:insert-like true :command true :trigger filter-files})
 (mode "special" {})
+(mode "command" {:insert-like true :command true})
 
 (bind "ctrl-j" "insert" move-left)
 (bind "ctrl-l" "insert" move-right)
@@ -53,6 +91,12 @@
 (bind "ctrl-E" "insert" (fn [] (set-mode "special")))
 (bind "back" "insert" back-space)
 (bind "tab" "insert" insert-tab)
+(bind "ctrl-c" "insert" enter-command-mode)
+(bind "ctrl-e" "insert" eval-row)
+
+(bind "back" "command" del-command)
+(bind "enter" "command" eval-command-and-clear)
+(bind "esc" "command" pop-mode)
 
 (bind "ctrl-j" "files" move-left)
 (bind "ctrl-l" "files" move-right)
@@ -60,6 +104,7 @@
 (bind "ctrl-k" "files" move-down)
 (bind "enter" "files" select-file)
 (bind "esc" "files" pop-menu-buffer)
+(bind "back" "files" del-and-filter)
 
 (bind "esc" "special" pop-mode)
 (bind "p" "special" open-workspace)

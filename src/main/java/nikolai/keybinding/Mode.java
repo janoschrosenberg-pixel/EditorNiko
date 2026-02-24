@@ -30,6 +30,14 @@ public class Mode {
         return v instanceof Boolean && (Boolean) v;
     }
 
+    public IFn getFunc(String key) {
+        Object v = props.get(":"+key);
+        if(v != null && v instanceof IFn ifn) {
+            return ifn;
+        }
+        return null;
+    }
+
     /* Bindings */
 
     public void bind(String key, IFn fn) {
