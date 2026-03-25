@@ -18,6 +18,7 @@ public class Buffer {
     private int maxLines = 20;
     private int preferredCol = 0;
     private TextEdit edit;
+    private boolean newFile;
 
     private final String fileName;
     private Tree tree;
@@ -51,14 +52,27 @@ public class Buffer {
       return  getTextAtLine(this.cursor.row()).trim();
     }
 
+    public Pos getCursor() {
+        return this.cursor;
+    }
     public String getTextAtLine(int row) {
         return edit.getText(new Pos(row,0), new Pos(row+1,0));
     }
 
     public Buffer(String fileName)  {
+        this.newFile = true;
         this.fileName = fileName;
         this.edit = TextEdit.of();
         updateToken();
+    }
+
+    public void saveFile(String fileName) {
+        this.edit.save(Path.of(fileName));
+        this.newFile = false;
+    }
+
+    public boolean isNewFile(){
+        return this.newFile;
     }
 
     public void parseText() {
@@ -128,6 +142,12 @@ public class Buffer {
 
         revalidateViewPort();
     }
+
+    public void setCursor(Pos cursor) {
+        this.cursor = cursor;
+        revalidateViewPort();
+    }
+
 
     public List<String> getViewPortTextLines(int maxLines) {
 

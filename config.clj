@@ -56,6 +56,8 @@
 
 (defn stack-size [] (.getBufferMenuStackLength api))
 (defn del-command [] (.delCommand api))
+(defn goto-def [] (.jumpToDefinition api))
+
 (defn del-and-filter [] (del-command) (filter-files) )
 
 (defn test-status [] (set-status-text (stack-size)))
@@ -93,6 +95,7 @@
 (bind "tab" "insert" insert-tab)
 (bind "ctrl-c" "insert" enter-command-mode)
 (bind "ctrl-e" "insert" eval-row)
+(bind "ctrl-d" "insert" goto-def)
 
 (bind "back" "command" del-command)
 (bind "enter" "command" eval-command-and-clear)

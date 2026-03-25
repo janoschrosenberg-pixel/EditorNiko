@@ -1,10 +1,12 @@
 package view;
 import clojure.lang.IFn;
+import com.mammb.code.piecetable.Pos;
 import nikolai.Buffer;
 import nikolai.Direction;
 import nikolai.FileScanner;
 import nikolai.Utils;
 import nikolai.keybinding.*;
+import nikolai.lsp.LSP;
 
 
 import javax.swing.*;
@@ -29,6 +31,8 @@ public class EditorFrame extends JFrame {
     private FileScanner scanner = new FileScanner();
     private final StatusPanel statusPanel = new StatusPanel();
     private CommandPanel commandPanel = new CommandPanel();
+    private final LSP lsp = LSP.INSTANCE;
+
 
     private Stack<Buffer> bufferMenuStack = new Stack<>();
 
@@ -87,6 +91,22 @@ public class EditorFrame extends JFrame {
 
     public String getBufferMenuStackLength() {
         return bufferMenuStack.size()+"";
+    }
+
+    public void jumpToDefinition() {
+       Pos cursor = this.currentBuffer.getCursor();
+        try {
+         var gotoDef = lsp.getDefinition(cursor.row()+1, cursor.col()+1, currentBuffer.getFileName());
+         if (gotoDef != null) {
+            var newFile =  gotoDef.file.getAbsolutePath();
+            if(!newFile.equals(currentBuffer.getFileName())) {
+                loadFile(newFile);
+                currentBuffer.setCursor(new Pos(gotoDef.line-1, gotoDef.col-1));
+            }
+         }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private KeyStroke parseStroke(String key) {
@@ -220,6 +240,14 @@ public class EditorFrame extends JFrame {
 
     public String getCurrentLine() {
         return currentBuffer.getCurrentLine();
+    }
+
+    public void saveFile(String fileName) {
+        currentBuffer.saveFile(fileName);
+    }
+
+    public boolean isNewFile(){
+        return currentBuffer.isNewFile();
     }
 
     public void popMenuBuffer(){

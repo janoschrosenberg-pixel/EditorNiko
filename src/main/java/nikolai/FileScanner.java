@@ -1,18 +1,18 @@
 package nikolai;
 
+import org.jspecify.annotations.NonNull;
+
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class FileScanner {
 
-    // Thread-safe Liste für parallele Zugriffe
+    // Thread-safe Listen für parallele Zugriffe
     private final List<String> files = new CopyOnWriteArrayList<>();
-
+    private final List<String> folders = new CopyOnWriteArrayList<>();
 
     private final List<String> ignoredFolders = List.of(
             "out", "output", "target", ".vscode", "build", "node_modules"
@@ -22,13 +22,16 @@ public class FileScanner {
         return files;
     }
 
+    public List<String> getFolders() {
+        return folders;
+    }
+
     public void scanDirectory() {
         Path workspacePath;
 
         // workspace.txt einlesen
         try {
-            workspacePath = Path.of(Files.readString(Path.of("workspace.txt")).trim());
-
+            workspacePath = getPath();
         } catch (IOException e) {
             System.out.println("Fehler beim Lesen von workspace.txt: " + e.getMessage());
             return;
@@ -46,10 +49,23 @@ public class FileScanner {
         }
     }
 
+    public static @NonNull Path getPath() throws IOException {
+        Path workspacePath;
+        workspacePath = Path.of(Files.readString(Path.of("workspace.txt")).trim());
+        return workspacePath;
+    }
+
     public String filesToString() {
         return String.join("\n", getFiles());
     }
+
+    public String foldersToString() {
+        return String.join("\n", getFolders());
+    }
+
     private void scanRecursive(Path dir) throws IOException {
+        folders.add(dir.toAbsolutePath().toString()); // Verzeichnis hinzufügen
+
         try (Stream<Path> paths = Files.list(dir)) {
             paths.parallel().forEach(path -> {
                 if (Files.isDirectory(path)) {
@@ -64,8 +80,8 @@ public class FileScanner {
                 } else if (Files.isRegularFile(path)) {
                     String name = path.getFileName().toString().toLowerCase();
                     if (name.endsWith(".tsx") || name.endsWith(".jsx") ||
-                        name.endsWith(".ts") || name.endsWith(".js") ||
-                        name.endsWith(".css") || name.endsWith(".html")) {
+                            name.endsWith(".ts") || name.endsWith(".js") ||
+                            name.endsWith(".css") || name.endsWith(".html")) {
                         files.add(path.toAbsolutePath().toString());
                     }
                 }

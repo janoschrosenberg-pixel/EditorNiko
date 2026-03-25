@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 public class Utils {
@@ -24,6 +25,16 @@ public class Utils {
         } catch (IOException e) {
             // Optional: Logging oder Weiterwerfen
             e.printStackTrace();
+        }
+    }
+
+    public static String[] readFile(String filename) {
+        try {
+            java.util.List<String> lines = Files.readAllLines(Paths.get(filename));
+            return lines.toArray(new String[0]);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new String[0]; // leeres Array bei Fehler
         }
     }
 
