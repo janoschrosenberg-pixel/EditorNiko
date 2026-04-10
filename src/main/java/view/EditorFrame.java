@@ -1,12 +1,10 @@
 package view;
 import clojure.lang.IFn;
-import com.mammb.code.piecetable.Pos;
-import nikolai.Buffer;
-import nikolai.Direction;
-import nikolai.FileScanner;
-import nikolai.Utils;
+
+import nikolai.*;
 import nikolai.keybinding.*;
 import nikolai.lsp.LSP;
+import nikolai.piecetable.Pos;
 
 
 import javax.swing.*;
@@ -32,7 +30,13 @@ public class EditorFrame extends JFrame {
     private final StatusPanel statusPanel = new StatusPanel();
     private CommandPanel commandPanel = new CommandPanel();
     private final LSP lsp = LSP.INSTANCE;
+    Deque<Buffer> bufferBackStack = new ArrayDeque<>();
+    Deque<Buffer> bufferForwardStack = new ArrayDeque<>();
 
+    //TODO Muss ein String sein weil sich Positionen verändern werden
+    private List<String> internalClipboard = new ArrayList<>();
+
+    private String completionPrefix = "";
 
     private Stack<Buffer> bufferMenuStack = new Stack<>();
 
@@ -85,6 +89,29 @@ public class EditorFrame extends JFrame {
         m.bind(key, fn);
     }
 
+    public void copyCurrentToken() {
+      var text = this.currentBuffer.getTextFromCurrentToken();
+      if(text != null) {
+          if(!this.internalClipboard.contains(text)) {
+              this.internalClipboard.add(text);
+          }
+      }
+    }
+
+
+    public void insertLastInternalClipboard() {
+        if(!this.internalClipboard.isEmpty()) {
+           String text = this.internalClipboard.getLast();
+
+           this.currentBuffer.addText(text);
+        }
+        this.currentBuffer.updateToken();
+    }
+
+    public void showInternalClipboard() {
+        v1.setTextBox(this.internalClipboard);
+    }
+
     public void inserText(String text) {
         this.currentBuffer.addText(text);
     }
@@ -96,17 +123,24 @@ public class EditorFrame extends JFrame {
     public void jumpToDefinition() {
        Pos cursor = this.currentBuffer.getCursor();
         try {
-         var gotoDef = lsp.getDefinition(cursor.row()+1, cursor.col()+1, currentBuffer.getFileName());
+         var gotoDef = lsp.getDefinition(cursor.line()+1, cursor.col()+1, currentBuffer.getFileName());
          if (gotoDef != null) {
             var newFile =  gotoDef.file.getAbsolutePath();
             if(!newFile.equals(currentBuffer.getFileName())) {
                 loadFile(newFile);
-                currentBuffer.setCursor(new Pos(gotoDef.line-1, gotoDef.col-1));
             }
+             currentBuffer.setCursor(new Pos(gotoDef.line-1, gotoDef.col-1));
          }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void prevToken() {
+        this.currentBuffer.moveToToken(Direction.LEFT);
+    }
+    public void nextToken() {
+        this.currentBuffer.moveToToken(Direction.RIGHT);
     }
 
     private KeyStroke parseStroke(String key) {
@@ -217,18 +251,51 @@ public class EditorFrame extends JFrame {
             return;
         }
 
-        if(bufferCache.equals(file)) {
-            this.currentBuffer = bufferCache.get(file);
+        String menuName = "File Menu";
+        if(!this.currentBuffer.getFileName().equals(menuName)){
+            bufferBackStack.push(this.currentBuffer );
+        }else{
+            bufferBackStack.push(bufferMenuStack.peek());
         }
 
-        this.currentBuffer = new Buffer(Path.of(file));
-        bufferCache.put(currentBuffer.getFileName(), currentBuffer);
+        bufferForwardStack.clear();
+
+        if(bufferCache.containsKey(file)) {
+            this.currentBuffer = bufferCache.get(file);
+        }else{
+            this.currentBuffer = new Buffer(Path.of(file));
+            bufferCache.put(currentBuffer.getFileName(), currentBuffer);
+        }
+
+        updateStatusProp();
+    }
+
+    public void goBufferBack() {
+        if (bufferBackStack.isEmpty()) return;
+
+        bufferForwardStack.push(this.currentBuffer);
+        this.currentBuffer = bufferBackStack.pop();
+        updateStatusProp();
+    }
+
+    public void goBufferForward() {
+
+        if (bufferForwardStack.isEmpty()) return;
+
+        bufferBackStack.push(currentBuffer);
+        currentBuffer = bufferForwardStack.pop();
+        updateStatusProp();
     }
 
 
+    public void insertCompletion() {
+      String completion =  this.getCurrentSelection();
+      this.currentBuffer.addText(completion.substring(completionPrefix.length()));
+      exitTextMode();
+    }
     public void selectFile() {
-        bufferMenuStack.pop();
         loadCurrentRowAsFile();
+        bufferMenuStack.pop();
         updateStatusProp();
     }
 
@@ -340,7 +407,63 @@ public class EditorFrame extends JFrame {
     }
 
     public void enter() {
-        currentBuffer.addChar('\n');
+        currentBuffer.addReturn();
         currentBuffer.updateToken();
     }
+
+    public void jumpToBegin() {
+       this.currentBuffer.jumpToBegin();
+    }
+
+    public void jumpToEnd() {
+       this.currentBuffer.jumoToEnd();
+    }
+
+    public void showCompletions() {
+        Pos cursor = this.currentBuffer.getCursor();
+        var line = this.currentBuffer.getTextFromStartlineTo(cursor);
+
+        String lastTyped = "";
+        if(line != null && line.length()>0) {
+            var split = line.split("[\\s\\p{Punct}]+");
+            if(split.length>0)
+            lastTyped = split[split.length-1];
+        } else {
+            lastTyped = "";
+        }
+
+        if(line.endsWith(".") || line.endsWith(" ")) {
+            lastTyped = "";
+        }
+
+        try {
+        var completions = this.lsp.getCompletions(cursor.line()+1, cursor.col()+1,currentBuffer.getText(), currentBuffer.getFileName());
+            completionPrefix = lastTyped;
+            var currentCompletions = completions.stream().filter(s->s.startsWith(completionPrefix)).toList();
+            setTextBox(currentCompletions);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String getCurrentSelection() {
+        return  v1.getCurrentSelection();
+    }
+
+    public void setTextBox( java.util.List<String> items) {
+        this.v1.setTextBox(items);
+    }
+
+    public void nextText() {
+        this.v1.nextText();
+    }
+
+    public void exitTextMode() {
+        this.v1.clearTextBox();
+    }
+
+    public void prevText() {
+        this.v1.prevText();
+    }
+
 }

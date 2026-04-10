@@ -8,6 +8,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 public enum LSP {
@@ -64,5 +67,24 @@ public enum LSP {
         } else {
             return defs.getFirst();
         }
+    }
+
+    /**
+     * Liefert eine Liste von Autocompletion-Vorschlägen für die gegebene Position.
+     */
+    public List<String> getCompletions(int line, int col,String text,  String fileName) throws Exception {
+        Path workspacePath = workspace.toPath();
+        Path relativePath = workspacePath.relativize(Paths.get(fileName));
+
+        List<String> completions = client.getCompletions(
+
+                workspace.getAbsolutePath(),
+                relativePath.toString(),
+                text,
+                line,
+                col
+        );
+
+        return completions != null ? completions : new ArrayList<>();
     }
 }

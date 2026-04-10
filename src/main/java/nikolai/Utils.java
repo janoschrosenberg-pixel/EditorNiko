@@ -38,6 +38,23 @@ public class Utils {
         }
     }
 
+    public static String leseDatei(Path dateiPfad)  {
+        try {
+            return Files.readString(dateiPfad);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    public static void speichereDatei(String content, String filename)  {
+        try {
+            Files.writeString(Path.of(filename), content);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     public static String showFileChooser(Container parent) {
         JFileChooser fileChooser = new JFileChooser();

@@ -10,6 +10,7 @@ import org.eclipse.lsp4j.services.LanguageServer;
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -138,6 +139,79 @@ public class TsLspClient {
         }
 
         return result;
+    }
+
+    private  Set<String> openedFiles = new HashSet<>();
+    private  Map<String, String> textCache = new HashMap<>();
+
+
+    public List<String> getCompletions(String workspacePath, String fileName, String editorText, int line, int col) throws Exception {
+        if (!initialized) {
+            initialize(workspacePath); // Stelle sicher, dass workspacePath als Feld existiert oder übergeben wird
+        }
+
+        List<String> completions = new ArrayList<>();
+
+        // Absolute Datei-URI (Identifier für LSP)
+        Path absPath = Paths.get(fileName).toAbsolutePath();
+        String uri = absPath.toUri().toString();
+
+        // Track bereits geöffneter Dateien
+        if (openedFiles == null) {
+            openedFiles = new HashSet<>();
+        }
+        if (textCache == null) {
+            textCache = new HashMap<>();
+        }
+
+        // --- Datei öffnen oder Änderungen senden ---
+        if (!openedFiles.contains(uri)) {
+            // Erstes Öffnen
+            server.getTextDocumentService().didOpen(
+                    new DidOpenTextDocumentParams(
+                            new TextDocumentItem(uri, "typescript", 1, editorText)
+                    )
+            );
+            openedFiles.add(uri);
+            textCache.put(uri, editorText);
+        } else if (!editorText.equals(textCache.get(uri))) {
+            // Änderungen senden
+            server.getTextDocumentService().didChange(
+                    new DidChangeTextDocumentParams(
+                            new VersionedTextDocumentIdentifier(uri, 1),
+                            List.of(new TextDocumentContentChangeEvent(editorText))
+                    )
+            );
+            textCache.put(uri, editorText);
+        }
+
+        // --- Position für Completion ---
+        String[] lines = editorText.split("\n");
+        int lspLine = Math.max(0, line - 1);
+        lspLine = Math.min(lspLine, lines.length - 1);
+
+        int lspCol = Math.max(0, col - 1);
+        lspCol = Math.min(lspCol, lines[lspLine].length());
+
+        CompletionParams params = new CompletionParams(
+                new TextDocumentIdentifier(uri),
+                new Position(lspLine, lspCol)
+        );
+
+        // --- Completion-Request ---
+        CompletableFuture<Either<List<CompletionItem>, CompletionList>> future =
+                server.getTextDocumentService().completion(params);
+
+        Either<List<CompletionItem>, CompletionList> result = future.get();
+        if (result != null) {
+            if (result.isLeft()) {
+                for (CompletionItem item : result.getLeft()) completions.add(item.getLabel());
+            } else if (result.isRight()) {
+                for (CompletionItem item : result.getRight().getItems()) completions.add(item.getLabel());
+            }
+        }
+
+        return completions;
     }
 
     /**

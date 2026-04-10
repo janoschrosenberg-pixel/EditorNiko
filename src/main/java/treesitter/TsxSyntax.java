@@ -141,6 +141,8 @@ public class TsxSyntax {
         return lines;
     }
 
+
+
     static final Color[] CYBERPUNK_NEON = {
             new Color(0x00FFFF), // Neon Cyan
             new Color(0xFF00FF), // Neon Magenta
