@@ -14,9 +14,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TsLspClient {
-
+    private final List<Error> collectedErrors = Collections.synchronizedList(new ArrayList<>());
+    private final Map<String, CompletableFuture<Void>> diagnosticFutures = new ConcurrentHashMap<>();
     public static class GotoDefInfo {
         public File file;
         public int line;
@@ -49,7 +51,32 @@ public class TsLspClient {
 
             @Override
             public void publishDiagnostics(PublishDiagnosticsParams diagnostics) {
-                // ignoriert
+                String fileUri = diagnostics.getUri();
+                String filePath;
+                try {
+                    filePath = Paths.get(new URI(fileUri)).toAbsolutePath().toString();
+                } catch (Exception e) {
+                    filePath = fileUri;
+                }
+
+                String fp = filePath;
+                collectedErrors.removeIf(err -> err.file().equals(fp));
+
+                for (Diagnostic diag : diagnostics.getDiagnostics()) {
+                    collectedErrors.add(new Error(
+                            fp,
+                            diag.getRange().getStart().getLine() + 1,
+                            diag.getRange().getStart().getCharacter() + 1,
+                            diag.getMessage(),
+                            diag.getSeverity()
+                    ));
+                }
+
+                // Signal: Diagnostics für diese URI sind da
+                CompletableFuture<Void> future = diagnosticFutures.remove(fileUri);
+                if (future != null) {
+                    future.complete(null);
+                }
             }
 
             @Override
@@ -76,14 +103,20 @@ public class TsLspClient {
     /**
      * Initialisiert den LSP-Server. Muss vor allen anderen Aufrufen erfolgen.
      */
+
+
     public void initialize(String workspacePath) throws Exception {
         InitializeParams initParams = new InitializeParams();
         initParams.setRootUri(Paths.get(workspacePath).toAbsolutePath().toUri().toString());
-        initParams.setCapabilities(new ClientCapabilities());
 
-        InitializeResult initResult = server.initialize(initParams).get();
+        // Dem Server mitteilen, dass wir publishDiagnostics verstehen
+        ClientCapabilities capabilities = new ClientCapabilities();
+        TextDocumentClientCapabilities textDocCaps = new TextDocumentClientCapabilities();
+        textDocCaps.setPublishDiagnostics(new PublishDiagnosticsCapabilities());
+        capabilities.setTextDocument(textDocCaps);
+        initParams.setCapabilities(capabilities);
 
-        // initialized-Notification senden (LSP-Protokoll verlangt das)
+        server.initialize(initParams).get();
         server.initialized(new InitializedParams());
         initialized = true;
     }
@@ -220,5 +253,52 @@ public class TsLspClient {
     public void shutdown() throws Exception {
         server.shutdown().get();
         server.exit();
+    }
+
+    public List<Error> findErrors() {
+        return new ArrayList<>(collectedErrors);
+    }
+
+    public List<Error> findErrors(String workspacePath) throws Exception {
+        if (!initialized) initialize(workspacePath);
+
+        // Alle .ts / .tsx Dateien finden und öffnen
+        try (var stream = Files.walk(Paths.get(workspacePath))) {
+            List<Path> tsFiles = stream
+                    .filter(p -> p.toString().endsWith(".ts") || p.toString().endsWith(".tsx"))
+                    .filter(p -> !p.toString().contains("node_modules"))
+                    .toList();
+
+            for (Path file : tsFiles) {
+                try {
+                    openFileAndAwaitDiagnostics(file);
+                } catch (java.util.concurrent.TimeoutException e) {
+                    // Server hat für diese Datei keine Diagnostics geschickt
+                    // (= keine Fehler) – weiter
+                }
+            }
+        }
+
+        return new ArrayList<>(collectedErrors);
+    }
+    private void openFileAndAwaitDiagnostics(Path file) throws Exception {
+        String uri = file.toAbsolutePath().toUri().toString();
+
+        if (openedFiles.contains(uri)) return;
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        diagnosticFutures.put(uri, future);
+
+        String text = Files.readString(file);
+        server.getTextDocumentService().didOpen(
+                new DidOpenTextDocumentParams(
+                        new TextDocumentItem(uri, "typescript", 1, text)
+                )
+        );
+        openedFiles.add(uri);
+        textCache.put(uri, text);
+
+        // Warten bis Server Diagnostics schickt (max 5 Sekunden)
+        future.get(5, java.util.concurrent.TimeUnit.SECONDS);
     }
 }

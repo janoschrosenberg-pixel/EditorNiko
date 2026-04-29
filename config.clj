@@ -24,7 +24,7 @@
 
 (defn mode [name props]
   (.defineMode api name props))
-
+(defn show-errors [] (.showErrors api))
 (defn set-mode [name]
   (.setMode api name))
 
@@ -46,6 +46,10 @@
 
 (defn to-begin []
   (.jumpToBegin api))
+
+(defn save-current-file []
+  (.saveCurrentFile api))
+
 
 (defn to-end []
   (.jumpToEnd api))
@@ -151,6 +155,7 @@
 (bind "ctrl-d" "insert" goto-def)
 (bind "esc" "insert" (fn [] (set-mode "normal")(syntax-update)))
 (bind "ctrl-n" "insert" (fn [] (set-mode "completion") (show-completions)))
+(bind "ctrl-s" "insert" save-current-file)
 
 (bind "k" "completion" next-item)
 (bind "i" "completion" prev-item)
@@ -168,6 +173,7 @@
 (bind "c" "normal" copy-token-internal)
 (bind "v" "normal" paste-token-internal)
 (bind "h" "normal" show-internal-clipboard)
+(bind "a" "normal" show-errors)
 
 (bind "ctrl-i" "normal" to-begin)
 (bind "ctrl-k" "normal" to-end)

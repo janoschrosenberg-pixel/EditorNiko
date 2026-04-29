@@ -98,6 +98,9 @@ public class EditorFrame extends JFrame {
       }
     }
 
+    public void showErrors() {
+        System.out.println(lsp.findErrors());
+    }
 
     public void insertLastInternalClipboard() {
         if(!this.internalClipboard.isEmpty()) {
@@ -313,6 +316,10 @@ public class EditorFrame extends JFrame {
         currentBuffer.saveFile(fileName);
     }
 
+    public void saveCurrentFile(){
+        saveFile(currentBuffer.getFileName());
+    }
+
     public boolean isNewFile(){
         return currentBuffer.isNewFile();
     }
@@ -387,9 +394,6 @@ public class EditorFrame extends JFrame {
 
                         v1.repaintEditor();
                     }
-
-
-
                 }
             }
         });

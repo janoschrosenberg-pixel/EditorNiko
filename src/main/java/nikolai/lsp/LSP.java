@@ -87,4 +87,12 @@ public enum LSP {
 
         return completions != null ? completions : new ArrayList<>();
     }
+
+    public List<Error> findErrors() {
+        try {
+            return client.findErrors( workspace.getAbsolutePath());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
