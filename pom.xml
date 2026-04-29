@@ -58,9 +58,9 @@
                 <executions>
                     <execution>
                         <phase>package</phase>
-                        <goals>
+                        <gkloals>
                             <goal>shade</goal>
-                        </goals>
+                        </gkloals>
                         <configuration>
                             <transformers>
                                 <!-- Main Class Transformer -->
