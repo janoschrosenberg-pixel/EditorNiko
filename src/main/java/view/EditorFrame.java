@@ -408,6 +408,9 @@ public class EditorFrame extends JFrame {
         statusPanel.setPreferredSize(new Dimension(0, 30));
         add(statusPanel, BorderLayout.SOUTH);
         setVisible(true);
+
+        v1.setFocusable(true);
+        v1.requestFocusInWindow();
     }
 
     public void enter() {
